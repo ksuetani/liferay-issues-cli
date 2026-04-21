@@ -121,7 +121,7 @@ func navigateParts(data interface{}, parts []string) interface{} {
 		if len(rest) == 0 {
 			return arr
 		}
-		var results []interface{}
+		results := make([]interface{}, 0, len(arr))
 		for _, elem := range arr {
 			if r := navigateParts(elem, rest); r != nil {
 				results = append(results, r)
@@ -159,8 +159,6 @@ func navigateParts(data interface{}, parts []string) interface{} {
 	return navigateParts(val, rest)
 }
 
-// splitPath converts a dotted path like "fields.issuelinks[].key" into tokens
-// ["fields", "issuelinks", "[]", "key"].
 func splitPath(path string) []string {
 	var parts []string
 	for _, seg := range strings.Split(path, ".") {
