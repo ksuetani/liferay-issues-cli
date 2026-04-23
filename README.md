@@ -7,9 +7,10 @@ A CLI tool for managing Jira tickets on Liferay's Atlassian instance. Create, vi
 ### Homebrew
 
 ```sh
-brew tap dtruong/tap
-brew install issues
+brew install david-truong/liferay/liferay-issues-cli
 ```
+
+The binary installs as `issues`.
 
 ### From source
 
