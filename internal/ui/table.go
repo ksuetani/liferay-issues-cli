@@ -62,7 +62,7 @@ func PrintIssueTable(issues []jira.Issue) {
 		if issue.Fields.IssueType != nil {
 			issueType = issue.Fields.IssueType.Name
 		}
-		affects := joinVersionNames(issue.Fields.Versions)
+		affects := joinVersionNames(issue.Fields.Versions, issue.Fields.Created)
 		fixVersion := joinVersionNames(issue.Fields.FixVersions)
 		assignee := "Unassigned"
 		if issue.Fields.Assignee != nil {
@@ -80,12 +80,19 @@ func PrintIssueTable(issues []jira.Issue) {
 	w.Flush()
 }
 
-func joinVersionNames(versions []jira.Version) string {
+func joinVersionNames(versions []jira.Version, fallbackDate ...string) string {
 	if len(versions) == 0 {
 		return ""
 	}
 	var names []string
 	for _, v := range versions {
+		if strings.EqualFold(v.Name, "master") && len(fallbackDate) > 0 {
+			date := formatDate(fallbackDate[0])
+			if date != "" {
+				names = append(names, v.Name+" ("+date+")")
+				continue
+			}
+		}
 		names = append(names, v.Name)
 	}
 	return strings.Join(names, ", ")
