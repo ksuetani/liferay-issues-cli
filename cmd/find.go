@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/david-truong/liferay-issues-cli/internal/jira"
@@ -160,6 +161,14 @@ func buildFindJQL(cmd *cobra.Command, query string, includeMaster bool) (string,
 
 	// Only add ORDER BY if explicitly requested; otherwise Jira sorts by relevance
 	if v, _ := cmd.Flags().GetString("order-by"); v != "" {
+		allowed := map[string]bool{
+			"updated": true, "created": true, "priority": true,
+			"key": true, "status": true, "assignee": true,
+			"summary": true, "issuetype": true, "resolution": true,
+		}
+		if !allowed[strings.ToLower(v)] {
+			return "", fmt.Errorf("invalid --order-by value %q (allowed: updated, created, priority, key, status, assignee, summary, issuetype, resolution)", v)
+		}
 		jql += " ORDER BY " + v + " DESC"
 	}
 
@@ -251,23 +260,30 @@ func resolveComponentFlag(cmd *cobra.Command) error {
 
 	components, err := client.GetProjectComponents(project)
 	if err != nil {
-		return nil // Fallback to using name as-is if lookup fails
+		// Surface the error when --component was explicitly set
+		if cmd.Flags().Changed("component") {
+			return fmt.Errorf("looking up components for project %s: %w", project, err)
+		}
+		return nil // Fallback for default component config
 	}
 
-	resolved := resolveComponentName(component, components)
+	resolved, err := resolveComponentName(component, components)
+	if err != nil {
+		return err
+	}
 	if resolved != component {
 		cmd.Flags().Set("component", resolved)
 	}
 	return nil
 }
 
-func resolveComponentName(name string, components []jira.Component) string {
+func resolveComponentName(name string, components []jira.Component) (string, error) {
 	lower := strings.ToLower(name)
 
 	// Exact match (case-insensitive)
 	for _, c := range components {
 		if strings.ToLower(c.Name) == lower {
-			return c.Name
+			return c.Name, nil
 		}
 	}
 
@@ -280,15 +296,15 @@ func resolveComponentName(name string, components []jira.Component) string {
 	}
 
 	if len(matches) == 1 {
-		return matches[0].Name
+		return matches[0].Name, nil
 	}
 	if len(matches) > 1 {
-		selected, err := ui.SelectComponent(matches)
-		if err != nil {
-			return name // Fallback on prompt error
+		fmt.Fprintf(os.Stderr, "Multiple components match %q:\n", name)
+		for _, c := range matches {
+			fmt.Fprintf(os.Stderr, "  %s\n", c.Name)
 		}
-		return selected.Name
+		return "", fmt.Errorf("ambiguous component %q — use a more specific name", name)
 	}
 
-	return name // No match, use as-is
+	return name, nil // No match, use as-is
 }
